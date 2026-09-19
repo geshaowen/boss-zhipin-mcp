@@ -1,9 +1,8 @@
 name: Windows compatibility
 
 on:
-  push:
-    branches: [fix/windows-current-chrome]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:

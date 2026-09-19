@@ -57,9 +57,13 @@ class ContractTests(unittest.TestCase):
     def test_tool_names_and_parameters_match_06a1a7d(self):
         self.assertEqual(tool_contract(), EXPECTED_TOOLS)
 
-    def test_business_modules_match_06a1a7d_byte_for_byte(self):
+    def test_business_module_content_matches_06a1a7d(self):
         actual = {
-            name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+            # Git may check out CRLF on Windows. Normalize only line endings so
+            # the test still locks the source content from 06a1a7d.
+            name: hashlib.sha256(
+                (ROOT / name).read_bytes().replace(b"\r\n", b"\n")
+            ).hexdigest()
             for name in BASELINE_HASHES
         }
         self.assertEqual(actual, BASELINE_HASHES)
