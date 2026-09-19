@@ -6,7 +6,7 @@ import yaml
 
 # BOSS 直聘
 BOSS_BASE_URL = "https://www.zhipin.com"
-BOSS_SEARCH_URL = "https://www.zhipin.com/web/boss/recommend"
+BOSS_SEARCH_URL = "https://www.zhipin.com/web/chat/recommend"
 
 # Cookie 持久化
 COOKIES_DIR = os.path.join(os.path.dirname(__file__), "cookies")

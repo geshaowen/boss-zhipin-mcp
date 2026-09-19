@@ -1,0 +1,33 @@
+name: Windows compatibility
+
+on:
+  push:
+    branches: [fix/windows-current-chrome]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile and import platform modules
+        env:
+          BOSS_BROWSER_MODE: current
+        run: |
+          python -m py_compile browser.py chrome_session.py tab_lock.py server.py
+          python -c "import browser, chrome_session, tab_lock, server; print('windows imports ok')"
+      - name: Run tests
+        env:
+          BOSS_BROWSER_MODE: current
+        run: python -m unittest discover -v
