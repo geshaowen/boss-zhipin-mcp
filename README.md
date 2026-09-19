@@ -3,10 +3,12 @@
 > 用 AI 自动化 BOSS 直聘招聘流程 — 批量搜索、自动获取链接、智能筛选评分、一键导出报告
 
 [![MCP](https://img.shields.io/badge/MCP-Compatible-blue)](https://modelcontextprotocol.io)
-[![Python](https://img.shields.io/badge/Python-3.12+-green)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.12-green)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 **BOSS 直聘 (zhipin.com)** 招聘者端自动化工具，基于 [Model Context Protocol (MCP)](https://modelcontextprotocol.io)，让 Claude Code / Claude Desktop 等 AI 助手直接操作 BOSS 直聘招聘后台。
+
+> 本仓库是基于 [Snseam/boss-zhipin-mcp](https://github.com/Snseam/boss-zhipin-mcp) 的维护版。维护版保留原有 17 个 MCP 工具和招聘业务逻辑，新增日常 Chrome 登录态复用及 Windows `current` 模式支持。
 
 ## 功能特性
 
@@ -81,11 +83,11 @@ boss_greet_by_index() / boss_send_greeting()  ← 联系候选人
 
 #### Windows current
 
-1. 安装 **64 位 Chrome 144+**、Python 3.10 或 3.12，并执行 `pip install -r requirements.txt`。
+1. 安装 **64 位 Chrome 144+**、Python 3.10 或 3.12，并按下文安装项目依赖。
 2. 在日常 Chrome 打开 `chrome://inspect/#remote-debugging` 并开启远程调试。
 3. 设置 `BOSS_BROWSER_MODE=current` 后启动 MCP。
 4. 每次 MCP 新建调试连接时，在 Chrome 弹窗中点击允许。
-5. 合并或部署前执行只读冒烟测试：
+5. 安装完成后执行只读冒烟测试：
 
 ```powershell
 $env:BOSS_BROWSER_MODE = "current"
@@ -99,19 +101,33 @@ Windows 分支使用 `msvcrt` 锁定工作标签状态，不导入 `fcntl`，也
 ### 1. 安装
 
 ```bash
-git clone https://github.com/Snseam/boss-zhipin-mcp.git
+git clone https://github.com/geshaowen/boss-zhipin-mcp.git
 cd boss-zhipin-mcp
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
 ```
+
+macOS：
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+Windows PowerShell：
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+`current` 模式直接连接已安装的 Chrome，不需要执行 `playwright install chromium`。仅在使用 `dedicated` 模式且需要 Chromium 后备浏览器时执行该命令。
 
 ### 2. 配置搜索条件
 
 ```bash
 cp search_profile.example.yaml search_profile.yaml
 ```
+
+Windows PowerShell 使用 `Copy-Item .\search_profile.example.yaml .\search_profile.yaml`。
 
 编辑 `search_profile.yaml`，填入你的岗位信息和搜索关键词：
 
@@ -136,7 +152,11 @@ scoring:
   tech_keywords: ["大模型", "llm", "rag", "agent"]
 ```
 
-### 3. 启动 Chrome（可选，MCP 会自动启动）
+### 3. 准备 Chrome
+
+`current` 模式不会启动其他 Chrome。请按前文说明，在日常 Chrome 中开启远程调试并允许连接。
+
+`dedicated` 模式未检测到调试端口时，可以自动启动系统 Chrome；也可以手动启动：
 
 ```bash
 # macOS — MCP 未检测到 debug 端口时会自动启动系统 Chrome
@@ -163,6 +183,13 @@ scoring:
     }
   }
 }
+```
+
+Windows 将 `command` 和 `args` 改为实际安装路径，例如：
+
+```json
+"command": "C:\\Tools\\boss-zhipin-mcp\\.venv\\Scripts\\python.exe",
+"args": ["C:\\Tools\\boss-zhipin-mcp\\server.py"]
 ```
 
 ### 5. 开始使用
@@ -311,8 +338,8 @@ boss-zhipin-mcp/
 ### 搜索返回空结果
 
 1. 确认 Chrome 已登录 BOSS 直聘招聘者账号
-2. 确认 Chrome 启动时带了 `--remote-debugging-port=9222`（或让 MCP 自动启动）
-3. 检查 `curl http://localhost:9222/json/version` 是否有响应
+2. `current` 模式确认已在 `chrome://inspect/#remote-debugging` 开启远程调试，并允许连接
+3. `current` 模式运行 `verify_current_chrome.py`；`dedicated` 模式检查 `curl http://localhost:9222/json/version` 是否有响应
 
 ### 简历内容为空
 
