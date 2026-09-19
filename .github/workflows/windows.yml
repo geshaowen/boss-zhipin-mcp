@@ -24,8 +24,8 @@ jobs:
         env:
           BOSS_BROWSER_MODE: current
         run: |
-          python -m py_compile browser.py chrome_session.py tab_lock.py server.py
-          python -c "import browser, chrome_session, tab_lock, server; print('windows imports ok')"
+          python -m py_compile browser.py chrome_session.py tab_lock.py server.py verify_current_chrome.py
+          python -c "import browser, chrome_session, tab_lock, server, verify_current_chrome; print('windows imports ok')"
       - name: Run tests
         env:
           BOSS_BROWSER_MODE: current

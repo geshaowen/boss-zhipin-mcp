@@ -85,6 +85,14 @@ boss_greet_by_index() / boss_send_greeting()  ← 联系候选人
 2. 在日常 Chrome 打开 `chrome://inspect/#remote-debugging` 并开启远程调试。
 3. 设置 `BOSS_BROWSER_MODE=current` 后启动 MCP。
 4. 每次 MCP 新建调试连接时，在 Chrome 弹窗中点击允许。
+5. 合并或部署前执行只读冒烟测试：
+
+```powershell
+$env:BOSS_BROWSER_MODE = "current"
+python verify_current_chrome.py
+```
+
+结果必须为 `status: passed`、`tool_count: 17`、两次登录均为 `success`，且候选人数据库前后 SHA-256 相同。该脚本不会搜索候选人或发送消息。
 
 Windows 分支使用 `msvcrt` 锁定工作标签状态，不导入 `fcntl`，也不调用 `lsof`、`ps` 或 macOS 的 `DevToolsActivePort` 路径。Chrome 官方说明要求 144+ 并对每个新连接进行显式授权，参见 [Chrome 官方连接说明](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session)。
 
@@ -280,6 +288,7 @@ boss-zhipin-mcp/
 ├── browser.py                 # Playwright CDP 浏览器管理 + 自动启动 Chrome
 ├── chrome_session.py          # current 模式平台检测与原生连接入口
 ├── tab_lock.py                # macOS/Unix fcntl 与 Windows msvcrt 状态锁
+├── verify_current_chrome.py   # current 模式只读实机冒烟验收
 ├── candidate_db.py            # 候选人数据库（持久化 + 去重 + 查询）
 ├── evaluator.py               # 候选人评估（关键词匹配）
 ├── config.py                  # 配置加载
