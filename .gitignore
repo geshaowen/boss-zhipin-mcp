@@ -3,6 +3,9 @@ search_profile.yaml
 
 # Runtime data
 seen_candidates.json
+candidates_db.json
+*.tmp
+*.bak
 cookies/
 chrome-profile/
 
@@ -13,3 +16,7 @@ __pycache__/
 
 # macOS
 .DS_Store
+.boss-current-tab.json
+.boss-current-tab.lock
+.boss-current-tab.tmp
+screenshot_verification.png

@@ -3,12 +3,14 @@
 import sys
 import os
 import importlib
+import asyncio
 from fastmcp import FastMCP
 import browser as browser_mod
 import scraper as scraper_mod
 import evaluator as evaluator_mod
 import candidate_db as candidate_db_mod
-from browser import BossBrowser
+from browser import BossBrowser, connection_error
+from chrome_session import BROWSER_MODE
 from scraper import BossScraper
 from evaluator import CandidateEvaluator
 from candidate_db import CandidateDB
@@ -19,6 +21,7 @@ mcp = FastMCP("boss-recruiter")
 # Shared instances
 _browser: BossBrowser | None = None
 _scraper: BossScraper | None = None
+_browser_lock = asyncio.Lock()
 _evaluator = CandidateEvaluator()
 
 # --- Candidate database (replaces bare-ID dedup set) ---
@@ -30,16 +33,17 @@ _db = CandidateDB(CANDIDATE_DB_FILE, legacy_dedup_path=DEDUP_FILE)
 
 async def get_browser() -> BossBrowser:
     global _browser, _scraper
-    if _browser is None or not _browser.is_alive:
-        if _browser is not None:
-            try:
-                await _browser.close()
-            except Exception:
-                pass
-        _browser = BossBrowser()
-        await _browser.launch()
-        _scraper = None
-    return _browser
+    async with _browser_lock:
+        if _browser is None or not _browser.is_alive:
+            if _browser is not None:
+                try:
+                    await _browser.close()
+                except Exception:
+                    pass
+            _browser = BossBrowser()
+            await _browser.launch()
+            _scraper = None
+        return _browser
 
 
 async def get_scraper() -> BossScraper:
@@ -59,7 +63,13 @@ async def boss_login() -> dict:
     首次使用需要在弹出的浏览器中手动完成登录（扫码或短信验证）。
     登录成功后 Cookie 会自动保存，后续无需重复登录。
     """
-    browser = await get_browser()
+    try:
+        browser = await get_browser()
+    except Exception as exc:
+        error = connection_error(exc)
+        return {"status": error["error"], "message": error["message"]}
+    if BROWSER_MODE == "current":
+        return await browser.login()
     if await browser.is_logged_in():
         return {"status": "success", "message": "已登录，Cookie 有效"}
     return await browser.login()

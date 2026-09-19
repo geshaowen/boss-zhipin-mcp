@@ -18,7 +18,7 @@
 - **一键打招呼** — 在搜索结果中直接对候选人发起沟通，进入 BOSS 聊天列表
 - **自动筛选评分** — 按 YAML 配置的条件（年龄/薪资/状态）过滤 + 多维度评分
 - **报告导出** — 一键生成 Markdown 候选人报告（表格 + 跟进表 + 详情卡片）
-- **浏览器自动启动** — 未检测到 Chrome debug 端口时，自动启动系统 Chrome
+- **两种浏览器模式** — `current` 复用日常 Chrome 登录态；`dedicated` 保留原有自动启动后备
 - **YAML 配置** — 公司信息、JD、搜索关键词、筛选条件全部可配置
 
 ## 工作原理
@@ -56,6 +56,45 @@ boss_greet_by_index() / boss_send_greeting()  ← 联系候选人
 ```
 
 ## 快速开始
+
+### 浏览器模式选择
+
+默认仍是上游原有的 `dedicated` 模式。若要复用已经登录 BOSS 的日常 Chrome，在 MCP 环境变量中设置：
+
+```json
+"env": {
+  "BOSS_BROWSER_MODE": "current",
+  "NO_PROXY": "localhost,127.0.0.1"
+}
+```
+
+`current` 模式使用 Playwright 1.63+ 的 `connect_over_cdp("chrome", no_defaults=True)`，只绑定 MCP 自己创建的 BOSS 工作标签页。标签页 ID 保存在 `.boss-current-tab.json`；现有个人标签页不会被接管，工作标签页离开 `zhipin.com` 后操作会立即停止。连接失败时不会隐式启动其他 Chrome 或全新 Chromium。
+
+#### macOS current（已实机验证）
+
+1. 使用 Chrome 144 或更高版本，在日常 Chrome 打开 `chrome://inspect/#remote-debugging`。
+2. 开启 **Allow remote debugging for this browser instance**。
+3. 第一次调用 MCP 时，在 Chrome 弹窗中允许连接。
+4. `boss_login` 会检查并复用现有登录态，不会刷新二维码或另开登录 profile。
+
+该路径已在 macOS 日常 Chrome 上验证连接、登录检查和重复调用。搜索页选择器属于独立兼容性边界；本次 Windows 适配未修改搜索、滚动、筛选或打招呼逻辑。
+
+#### Windows current
+
+1. 安装 **64 位 Chrome 144+**、Python 3.10 或 3.12，并执行 `pip install -r requirements.txt`。
+2. 在日常 Chrome 打开 `chrome://inspect/#remote-debugging` 并开启远程调试。
+3. 设置 `BOSS_BROWSER_MODE=current` 后启动 MCP。
+4. 每次 MCP 新建调试连接时，在 Chrome 弹窗中点击允许。
+5. 合并或部署前执行只读冒烟测试：
+
+```powershell
+$env:BOSS_BROWSER_MODE = "current"
+python verify_current_chrome.py
+```
+
+结果必须为 `status: passed`、`tool_count: 17`、两次登录均为 `success`，且候选人数据库前后 SHA-256 相同。该脚本不会搜索候选人或发送消息。
+
+Windows 分支使用 `msvcrt` 锁定工作标签状态，不导入 `fcntl`，也不调用 `lsof`、`ps` 或 macOS 的 `DevToolsActivePort` 路径。Chrome 官方说明要求 144+ 并对每个新连接进行显式授权，参见 [Chrome 官方连接说明](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session)。
 
 ### 1. 安装
 
@@ -118,6 +157,7 @@ scoring:
       "command": "/path/to/boss-zhipin-mcp/.venv/bin/python",
       "args": ["/path/to/boss-zhipin-mcp/server.py"],
       "env": {
+        "BOSS_BROWSER_MODE": "current",
         "NO_PROXY": "localhost,127.0.0.1"
       }
     }
@@ -233,7 +273,7 @@ scoring: # 评分关键词
 
 ## 技术细节
 
-- **浏览器连接**：CDP → 已登录 Chrome。未检测到 debug 端口时自动启动系统 Chrome
+- **浏览器连接**：`current` 原生授权复用日常 Chrome；`dedicated` 保留调试端口与自动启动流程
 - **SPA 适配**：搜索页在 iframe 中渲染，自动导航到招聘者后台
 - **Canvas 简历**：截图 + QR 码解码获取永久链接
 - **候选人数据库**：JSON 文件，原子写入，基于 `expectId` 去重
@@ -246,6 +286,9 @@ boss-zhipin-mcp/
 ├── server.py                  # MCP Server 入口，注册所有 tools
 ├── scraper.py                 # BOSS 直聘页面抓取（SPA + iframe）
 ├── browser.py                 # Playwright CDP 浏览器管理 + 自动启动 Chrome
+├── chrome_session.py          # current 模式平台检测与原生连接入口
+├── tab_lock.py                # macOS/Unix fcntl 与 Windows msvcrt 状态锁
+├── verify_current_chrome.py   # current 模式只读实机冒烟验收
 ├── candidate_db.py            # 候选人数据库（持久化 + 去重 + 查询）
 ├── evaluator.py               # 候选人评估（关键词匹配）
 ├── config.py                  # 配置加载
