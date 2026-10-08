@@ -40,7 +40,7 @@ class EndpointTests(unittest.TestCase):
     def test_macos_missing_authorization(self):
         with patch.object(chrome_session.sys, "platform", "darwin"), patch.object(
             chrome_session, "CURRENT_PORT_FILE", self.port_file
-        ):
+        ), patch.object(chrome_session, "_port_from_process", return_value=None):
             self.assertEqual(
                 chrome_session.check_current_endpoint()["status"],
                 "authorization_required",
@@ -51,10 +51,40 @@ class EndpointTests(unittest.TestCase):
         with patch.object(chrome_session.sys, "platform", "darwin"), patch.object(
             chrome_session, "CURRENT_PORT_FILE", self.port_file
         ):
-            self.assertEqual(
-                chrome_session.check_current_endpoint()["status"],
-                "endpoint_available",
-            )
+            result = chrome_session.check_current_endpoint()
+        self.assertEqual(result["status"], "endpoint_available")
+        self.assertEqual(result["endpoint"], "ws://localhost:9223/devtools/browser")
+
+    def test_macos_unreadable_file_falls_back_to_process(self):
+        with patch.object(chrome_session.sys, "platform", "darwin"), patch.object(
+            chrome_session, "CURRENT_PORT_FILE", self.port_file
+        ), patch.object(chrome_session, "_port_from_process", return_value=54207):
+            result = chrome_session.check_current_endpoint()
+        self.assertEqual(result["status"], "endpoint_available")
+        self.assertEqual(result["endpoint"], "ws://localhost:54207/devtools/browser")
+
+    def test_automation_browsers_are_not_daily_chrome(self):
+        binary = chrome_session.MAC_CHROME_BINARY
+        ps_output = "\n".join([
+            f"100 {binary}",
+            f"200 {binary} --user-data-dir=/x/.boss-cli --remote-debugging-port=53470",
+            f"300 {binary} --user-data-dir=/x/chrome-devtools-mcp --remote-debugging-pipe",
+            f"400 {binary} --type=renderer",
+            f"500 {binary} --no-startup-window",
+        ])
+        with patch.object(
+            chrome_session.subprocess, "run", return_value=Mock(stdout=ps_output)
+        ):
+            self.assertEqual(chrome_session._daily_chrome_pids(), ["100", "500"])
+
+    def test_port_from_process_reads_loopback_listener(self):
+        lsof_output = "p100\nf30\nn127.0.0.1:54207\n"
+        with patch.object(
+            chrome_session, "_daily_chrome_pids", return_value=["100"]
+        ), patch.object(
+            chrome_session.subprocess, "run", return_value=Mock(stdout=lsof_output)
+        ):
+            self.assertEqual(chrome_session._port_from_process(), 54207)
 
     def test_windows_does_not_require_macos_port_file(self):
         with patch.object(chrome_session.sys, "platform", "win32"), patch.object(
