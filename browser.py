@@ -99,7 +99,7 @@ class BossBrowser:
         try:
             self._playwright = await async_playwright().start()
             self._browser = await self._playwright.chromium.connect_over_cdp(
-                CONNECT_ENDPOINT,
+                status.get("endpoint", CONNECT_ENDPOINT),
                 timeout=45000,
                 no_defaults=True,
             )
@@ -430,7 +430,14 @@ class BossBrowser:
     async def login(self) -> dict:
         if BROWSER_MODE == "current":
             async with self._login_lock:
+                # A freshly opened tab needs a few seconds before BOSS renders
+                # its navigation; poll instead of reporting "not ready" at once.
                 state = await self._current_auth_state()
+                for _ in range(15):
+                    if state != "unknown":
+                        break
+                    await asyncio.sleep(1)
+                    state = await self._current_auth_state()
                 if state == "logged_in":
                     return {
                         "status": "success",
